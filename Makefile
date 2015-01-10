@@ -10,21 +10,21 @@ DUDECPU=ATMEGA32U4
 TTY=/dev/ttyACM0
 
 CC=avr-gcc
-OBJCOPY=avr-objcopy
+OBJCPY=avr-objcopy
 
 FLASHTOOL=avrdude -f -V -c arduino -p $(DUDECPU) -P $(TTY) -b 115200 -U flash:w:
 
 OBJFILES=main.o
 TARGET=main.hex
 
-
 all: $(TARGET)
+	echo well done
 
 flash: $(TARGET)
 	$(FLASHTOOL)$<
 
-clean: $(TARGET) $(OBJFILES)
-	rm -f $<
+clean: 
+	rm -f *.o *.hex *.bin
 
 # general methods
 %.o: %.c
@@ -32,7 +32,7 @@ clean: $(TARGET) $(OBJFILES)
 
 # link together every file
 %.bin: $(OBJFILES)
-	echo $(CC) -mmcu=$(MMCU) -o $@ $<
+	$(CC) -mmcu=$(MMCU) -o $@ $<
 
 %.hex: %.bin
 	$(OBJCPY) -O ihex -R .eeprom $< $@
