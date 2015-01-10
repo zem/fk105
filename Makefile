@@ -26,16 +26,15 @@ flash: $(TARGET)
 clean: $(TARGET) $(OBJFILES)
 	rm -f $<
 
-
 # general methods
 %.o: %.c
 	$(CC)  -Os -DF_CPU=$(CLOCK) -mmcu=$(MMCU) -c -o $@ $<
 
 # link together every file
-%: $(OBJFILES)
+%.bin: $(OBJFILES)
 	echo $(CC) -mmcu=$(MMCU) -o $@ $<
 
-%.hex: %
+%.hex: %.bin
 	$(OBJCPY) -O ihex -R .eeprom $< $@
 
 
