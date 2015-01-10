@@ -4,7 +4,7 @@
 CLOCK=16000000UL
 
 # the arduino micro 
-CPU=atmega32u4
+MMCU=atmega32u4
 DUDECPU=ATMEGA32U4
 
 TTY=/dev/ttyACM0
@@ -29,11 +29,11 @@ clean: $(TARGET) $(OBJFILES)
 
 # general methods
 %.o: %.c
-	$(CC)  -Os -DF_CPU=$(CLOCK) --mmcu=$(CPU) -c -o $@ $<
+	$(CC)  -Os -DF_CPU=$(CLOCK) -mmcu=$(MMCU) -c -o $@ $<
 
 # link together every file
 %: $(OBJFILES)
-	$(CC) --mmcu=$(CPU) -o $@ $<
+	echo $(CC) -mmcu=$(MMCU) -o $@ $<
 
 %.hex: %
 	$(OBJCPY) -O ihex -R .eeprom $< $@
