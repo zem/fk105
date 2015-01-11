@@ -5,8 +5,8 @@
 #include <avr/sleep.h>
 
 // just in case that we need a timer
-#define F_CPU 16000000
-#include <util/delay.h>
+//#define F_CPU 16000000
+//#include <util/delay.h>
 
 #define fr 12500  // 12,5 kHz
 #define M 64      // 1:64 prescaler
@@ -26,32 +26,32 @@
 // freq_int is holding ur configuration while freq_hex is calculated 
 // during init 
 struct freq_int_t {
-	uint16_t rx_freq;
-	uint16_t tx_freq; 
+	uint32_t rx_freq;
+	uint32_t tx_freq; 
 	uint16_t ctcss; 
-}
+};
 
-freq_int_t freq_int[MAX_CHANNELS+1]={
+struct freq_int_t freq_int[MAX_CHANNELS+1]={
 	{438950000, 431350000, 1622},
 	{433500000, 433500000, 0},
-	{NULL, NULL, NULL}
+	{0, 0, 0}
 };
 
 
 struct freq_hex_t {
 	unsigned char rx_freq[8];
 	unsigned char tx_freq[8]; 
-}
+};
  
-freq_hex_t freq_hex[MAX_CHANNELS+1];
+struct freq_hex_t freq_hex[MAX_CHANNELS+1];
 int anz_channels=0; 
 
 
-uint16_t calc_N (uint16_t freq) {
-	return freq/( fr * M );
+uint16_t calc_N (uint32_t freq) {
+	return (uint16_t) (freq/((uint32_t) fr * (uint32_t) M));
 }
 
-uint16_t calc_A (uint16_t freq, uint16_t N) {
+uint16_t calc_A (uint32_t freq, uint16_t N) {
 	return (freq/fr) - M * N;
 }
 
@@ -64,28 +64,34 @@ void setup_channels() {
 	uint16_t N;  
 	uint16_t A;  
 	for (i=0; i<MAX_CHANNELS; i++) {
-		if ( freq_int.rx_freq == NULL ) { 
+		if ( freq_int[i].rx_freq == 0 ) { 
 			anz_channels=i; 
-			freq_hex[i]={NULL, NULL}; 
-			return(); 
+			freq_hex[i]=(struct freq_hex_t) {0, 0}; 
+			return; 
 		}
 		// rx freq
 		N=calc_N(freq_int[i].rx_freq-ZF);
 		A=calc_A(freq_int[i].rx_freq-ZF, N);
-		(unsigned char *) freq_hex[i].rx_freq={ 
-			get_chr0(A), get_chr1(A),
-			get_chr0(N), get_chr1(N), get_chr2(N),
-			L5, L6, L7
-		};
+		freq_hex[i].rx_freq[0]=get_chr0(A);
+		freq_hex[i].rx_freq[1]=get_chr1(A);
+		freq_hex[i].rx_freq[2]=get_chr0(N); 
+		freq_hex[i].rx_freq[3]=get_chr1(N); 
+		freq_hex[i].rx_freq[4]=get_chr2(N);
+		freq_hex[i].rx_freq[5]=L5; 
+		freq_hex[i].rx_freq[6]=L6; 
+		freq_hex[i].rx_freq[7]=L7;
 		
 		// tx freq
 		N=calc_N(freq_int[i].rx_freq);
 		A=calc_A(freq_int[i].rx_freq, N);
-		(unsigned char *) freq_hex[i].tx_freq={ 
-			get_chr0(A), get_chr1(A),
-			get_chr0(N), get_chr1(N), get_chr2(N),
-			L5, L6, L7
-		};
+		freq_hex[i].tx_freq[0]=get_chr0(A);
+		freq_hex[i].tx_freq[1]=get_chr1(A);
+		freq_hex[i].tx_freq[2]=get_chr0(N); 
+		freq_hex[i].tx_freq[3]=get_chr1(N); 
+		freq_hex[i].tx_freq[4]=get_chr2(N);
+		freq_hex[i].tx_freq[5]=L5; 
+		freq_hex[i].tx_freq[6]=L6; 
+		freq_hex[i].tx_freq[7]=L7;
 	}
 }
 
