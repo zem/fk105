@@ -2,6 +2,7 @@
 #include <stdio.h> 
 #include <stdlib.h> 
 #include <avr/interrupt.h> 
+#include <avr/sleep.h>
 
 // just in case that we need a timer
 #define F_CPU 16000000
@@ -43,18 +44,74 @@ struct freq_hex_t {
 }
  
 freq_hex_t freq_hex[MAX_CHANNELS+1];
+int anz_channels=0; 
 
 
-
-ISR(PCINT1_vect) {
-	// insert pin change here 
+uint16_t calc_N (uint16_t freq) {
+	return freq/( fr * M );
 }
+
+uint16_t calc_A (uint16_t freq, uint16_t N) {
+	return (freq/fr) - M * N;
+}
+
+unsigned char get_chr0 (uint16_t n) { return (unsigned char) (n & 0x000F); }
+unsigned char get_chr1 (uint16_t n) { return (unsigned char) ((n & 0x00F0)>>1); }
+unsigned char get_chr2 (uint16_t n) { return (unsigned char) ((n & 0x0F00)>>2); }
+
+void setup_channels() {
+	int i=0;
+	uint16_t N;  
+	uint16_t A;  
+	for (i=0; i<MAX_CHANNELS; i++) {
+		if ( freq_int.rx_freq == NULL ) { 
+			anz_channels=i; 
+			freq_hex[i]={NULL, NULL}; 
+			return(); 
+		}
+		// rx freq
+		N=calc_N(freq_int[i].rx_freq-ZF);
+		A=calc_A(freq_int[i].rx_freq-ZF, N);
+		(unsigned char *) freq_hex[i].rx_freq={ 
+			get_chr0(A), get_chr1(A),
+			get_chr0(N), get_chr1(N), get_chr2(N),
+			L5, L6, L7
+		};
+		
+		// tx freq
+		N=calc_N(freq_int[i].rx_freq);
+		A=calc_A(freq_int[i].rx_freq, N);
+		(unsigned char *) freq_hex[i].tx_freq={ 
+			get_chr0(A), get_chr1(A),
+			get_chr0(N), get_chr1(N), get_chr2(N),
+			L5, L6, L7
+		};
+	}
+}
+
+// here the pin change is calculated // 
+ISR(PCINT0_vect) {
+	unsigned char i=PORTB&(0x07);
+	unsigned char ptt=(PORTB&(0x08))>>3;
+	uint16_t ch=(PORTB&(0xF0))>>4;
+	
+	if ( ptt != 0x01 ) {
+		PORTD=freq_hex[ch].rx_freq[i];
+	} else {
+		PORTD=freq_hex[ch].tx_freq[i];
+	}
+}
+
 
 
 int main (void) {            
 
-	PCMSK1 |= (1<<PCINT1);
-	PCMSK4 |= (1<<PCINT4);
+	DDRD=0b00001111; // PD0-3 are outbound 
+	DDRB=0b00000000; // all pins inbound
+
+	setup_channels();
+
+	PCMSK1 |= (1<<PCINT0);
 	sei(); 
 
 
