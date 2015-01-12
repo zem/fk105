@@ -3,6 +3,7 @@
 #include <stdlib.h> 
 #include <avr/interrupt.h> 
 #include <avr/sleep.h>
+#include <avr/pgmspace.h>
 
 // just in case that we need a timer
 #ifndef F_CPU
@@ -19,9 +20,9 @@
 
 // defining the prescaler 0x03C to be copied to the PLL
 // depends on 750000/fr
-#define L5 0x0C
-#define L6 0x03
-#define L7 0x00
+#define L5 (uint8_t) 0x0C
+#define L6 (uint8_t) 0x03
+#define L7 (uint8_t) 0x00
 
 
 // the following two structs are to construct the frequency 
@@ -33,7 +34,7 @@ struct freq_int_t {
 	uint16_t ctcss; 
 };
 
-struct freq_int_t freq_int[MAX_CHANNELS+1]={
+struct freq_int_t const freq_int[MAX_CHANNELS+1] PROGMEM={
 	{438950000, 431350000, 1622},
 	{433500000, 433500000, 0},
 	{0, 0, 0}
@@ -45,8 +46,9 @@ struct freq_hex_t {
 	uint8_t tx_freq[8]; 
 };
  
-struct freq_hex_t freq_hex[MAX_CHANNELS+1];
-int anz_channels=0; 
+struct freq_hex_t freq_hex;
+uint16_t channel=MAX_CHANNELS; // this is to kick the setup_channel() initially
+uint16_t num_channels=0; // this is to kick the setup_channel() initially
 
 
 uint16_t calc_N (uint32_t freq) {
@@ -58,65 +60,40 @@ uint16_t calc_A (uint32_t freq, uint16_t N) {
 }
 
 uint8_t get_chr0 (uint16_t n) { return (uint8_t) (n & 0x000F); }
-uint8_t get_chr1 (uint16_t n) { return (uint8_t) ((n & 0x00F0)>>1); }
-uint8_t get_chr2 (uint16_t n) { return (uint8_t) ((n & 0x0F00)>>2); }
+uint8_t get_chr1 (uint16_t n) { return (uint8_t) ((n & 0x00F0)>>4); }
+uint8_t get_chr2 (uint16_t n) { return (uint8_t) ((n & 0x0F00)>>8); }
 
-void setup_channels() {
-	uint8_t i=0;
+void setup_channel(uint16_t c) {
 	uint16_t N;  
 	uint16_t A;  
-	for (i=0; i<MAX_CHANNELS; i++) {
-		if ( freq_int[i].rx_freq == 0 ) { 
-			anz_channels=i; 
-			freq_hex[i]=(struct freq_hex_t) {0, 0}; 
-			return; 
-		}
-		// rx freq
-		N=calc_N(freq_int[i].rx_freq-ZF);
-		A=calc_A(freq_int[i].rx_freq-ZF, N);
-		freq_hex[i].rx_freq[0]=get_chr0(A);
-		//PORTD=freq_hex[i].rx_freq[0];
-		//_delay_ms(1000); 
-		freq_hex[i].rx_freq[1]=get_chr1(A);
-		//PORTD=freq_hex[i].rx_freq[1];
-		//_delay_ms(1000); 
-		freq_hex[i].rx_freq[2]=get_chr0(N); 
-		//PORTD=freq_hex[i].rx_freq[2];
-		//_delay_ms(1000); 
-		freq_hex[i].rx_freq[3]=get_chr1(N); 
-		//PORTD=freq_hex[i].rx_freq[3];
-		//_delay_ms(1000); 
-		freq_hex[i].rx_freq[4]=get_chr2(N);
-		//PORTD=freq_hex[i].rx_freq[4];
-		//_delay_ms(1000); 
-		freq_hex[i].rx_freq[5]=L5; 
-		//PORTD=freq_hex[i].rx_freq[5];
-		//_delay_ms(1000); 
-		freq_hex[i].rx_freq[6]=L6; 
-		//PORTD=freq_hex[i].rx_freq[6];
-		//_delay_ms(1000); 
-		freq_hex[i].rx_freq[7]=L7;
-		//PORTD=freq_hex[i].rx_freq[7];
-		//_delay_ms(1000); 
-		PORTD=0x0F;
-		_delay_ms(100); 
-		PORTD=0x00;
-		_delay_ms(100); 
-		PORTD=0x0F;
-		_delay_ms(100); 
-		
-		// tx freq
-		N=calc_N(freq_int[i].rx_freq);
-		A=calc_A(freq_int[i].rx_freq, N);
-		freq_hex[i].tx_freq[0]=get_chr0(A);
-		freq_hex[i].tx_freq[1]=get_chr1(A);
-		freq_hex[i].tx_freq[2]=get_chr0(N); 
-		freq_hex[i].tx_freq[3]=get_chr1(N); 
-		freq_hex[i].tx_freq[4]=get_chr2(N);
-		freq_hex[i].tx_freq[5]=L5; 
-		freq_hex[i].tx_freq[6]=L6; 
-		freq_hex[i].tx_freq[7]=L7;
-	}
+	if ( c == channel ) { return; } 
+	if ( c >= num_channels ) { return; } // do nothing if c is 
+								// higher than the last configured channel data
+	// rx freq
+	N=calc_N(freq_int[c].rx_freq-ZF);
+	A=calc_A(freq_int[c].rx_freq-ZF, N);
+	freq_hex.rx_freq[0]=get_chr0(A);
+	freq_hex.rx_freq[1]=get_chr1(A);
+	freq_hex.rx_freq[2]=get_chr0(N); 
+	freq_hex.rx_freq[3]=get_chr1(N); 
+	freq_hex.rx_freq[4]=get_chr2(N);
+	freq_hex.rx_freq[5]=L5; 
+	freq_hex.rx_freq[6]=L6; 
+	freq_hex.rx_freq[7]=L7;
+	
+	// tx freq
+	N=calc_N(freq_int[c].rx_freq);
+	A=calc_A(freq_int[c].rx_freq, N);
+	freq_hex.tx_freq[0]=get_chr0(A);
+	freq_hex.tx_freq[1]=get_chr1(A);
+	freq_hex.tx_freq[2]=get_chr0(N); 
+	freq_hex.tx_freq[3]=get_chr1(N); 
+	freq_hex.tx_freq[4]=get_chr2(N);
+	freq_hex.tx_freq[5]=L5; 
+	freq_hex.tx_freq[6]=L6; 
+	freq_hex.tx_freq[7]=L7; 
+	
+	channel=c; 
 }
 
 // here the pin change is calculated // 
@@ -124,21 +101,21 @@ ISR(PCINT0_vect) {
 	uint8_t i=PINB&(0x07);
 	uint8_t ptt=(PINB&(0x08))>>3;
 	uint16_t ch=(PINB&(0xF0))>>4;
+
+	setup_channel(ch); 
 	
 	if ( ptt != 0x01 ) {
-		PORTD=freq_hex[ch].rx_freq[i];
+		PORTD=freq_hex.rx_freq[i];
 	} else {
-		PORTD=freq_hex[ch].tx_freq[i];
+		PORTD=freq_hex.tx_freq[i];
 	}
 }
 
 
 int main (void) {            
-	//unsigned char i=PORTB&(0x07);
-	//unsigned char ptt=(PORTB&(0x08))>>3;
-	//uint16_t ch=(PORTB&(0xF0))>>4;
-	uint8_t on=3; 
-	unsigned char foo; 
+	uint8_t i;
+	uint8_t ptt;
+	uint16_t ch;
 
 	//DDRA=0b00000000;
 	DDRB=0b00000000; // all pins inbound 5th bit is ptt. 
@@ -148,94 +125,30 @@ int main (void) {
 	PORTB=0b11111111; // all pins pull up
 	//PORTD=0b11111111; // all pins pull up
 
-	setup_channels();
+	// initialize num channels first... 
+	while (freq_int[num_channels].rx_freq != 0) { num_channels++; }
+	setup_channel(0);
 	
-	//PORTD=freq_hex[1].tx_freq[2];
-
-//	PCICR |= (1<<PCIE1);
-//	PCMSK1 |= (1<<PCINT0);
-//	sei(); 
+	PCICR = 0x01;
+	PCMSK0 = 0x01;
+	sei();
 
    while(1) {                // (5)
-		//i=(unsigned char) PORTB&((1<<PB0)|(1<<PB1)|(1<<PB2));
-		//ptt=(unsigned char) (PORTB&(1<<PB3))>>3;
-		//ch=(uint16_t) (PORTB&((1<<PB4)|(1<<PB5)|(1<<PB6)|(1<<PB7)))>>4;
-		
-
-//			if ( on == 0 ) { PORTD=freq_hex[0].rx_freq[0]; }
-//			if ( on == 1 ) { PORTD=freq_hex[0].rx_freq[1]; }
-//			if ( on == 2 ) { PORTD=freq_hex[0].rx_freq[2]; }
-//			if ( on == 3 ) { PORTD=freq_hex[0].rx_freq[3]; }
-//			if ( on == 4 ) { PORTD=freq_hex[0].rx_freq[4]; }
-//			if ( on == 5 ) { PORTD=freq_hex[0].rx_freq[5]; }
-//			if ( on == 6 ) { PORTD=freq_hex[0].rx_freq[6]; }
-//			if ( on == 7 ) { PORTD=freq_hex[0].rx_freq[7]; }
-//			on=on+1; if ( on>=8 ) { on=0; }
-			 
-			PORTD=freq_hex[(uint8_t) 0].rx_freq[0]>>4; 
-			_delay_ms(1000);
-			PORTD=0xFF; 
-			_delay_ms(100);
-
-			PORTD=freq_hex[(uint8_t) 1].rx_freq[1]>>4; 
-			_delay_ms(1000);
-			PORTD=0xFF; 
-			_delay_ms(100);
-
-			PORTD=freq_hex[(uint8_t) 0].rx_freq[2]>>4; 
-			_delay_ms(1000);
-			PORTD=0xFF; 
-			_delay_ms(100);
-
-			PORTD=freq_hex[(uint8_t) 1].rx_freq[3]; 
-			_delay_ms(1000);
-			PORTD=0xFF; 
-			_delay_ms(100);
-
-			PORTD=freq_hex[(uint8_t) 0].rx_freq[4]; 
-			_delay_ms(1000);
-			PORTD=0xFF; 
-			_delay_ms(100);
-
-			PORTD=freq_hex[(uint8_t) 1].rx_freq[5]; 
-			_delay_ms(1000);
-			PORTD=0xFF; 
-			_delay_ms(100);
-
-			PORTD=freq_hex[(uint8_t) 0].rx_freq[6]; 
-			_delay_ms(1000);
-			PORTD=0xFF; 
-			_delay_ms(100);
-
-			PORTD=freq_hex[(uint8_t) 1].rx_freq[7]; 
-			_delay_ms(1000);
-			PORTD=0xFF; 
-			_delay_ms(100);
-
-
-			//PORTD=on; 
-
-
-//			if ( on == 0 ) {
-//				on=1; 
-//				PORTD=freq_hex[0].tx_freq[PINB&0x0F]; 
-//				DDRB=0b00000000; // all pins inbound
-//				PORTB=0b11111111; // all pins pull up
-//				//PORTD=(1<<PD0);
-//			} else {
-//				on=0; 
-//				PORTD=(0x00);
-//			}
-
-
-
-//	if ( ptt != 0x01 ) {
-//			PORTD=freq_hex[ch].rx_freq[i];
-	//		//PORTD=0x0f;
-//		} else {
-//			PORTD=freq_hex[ch].tx_freq[i];
-//		}
-//		sei(); 
+	/*	i=PINB&(0x07);
+		ptt=(PINB&(0x08))>>3;
+		ch=(PINB&(0xF0))>>4;
+	
+		setup_channel(ch); 
+	
+		if ( ptt != 0x01 ) {
+			PORTD=freq_hex.rx_freq[i];
+		} else {
+			PORTD=freq_hex.tx_freq[i];
+		}	*/
+		//sleep_bod_disable();
+	//	sleep_enable();
+	//	sleep_cpu();
+//		sleep_disable();
    }     
  
    /* wird nie erreicht */
