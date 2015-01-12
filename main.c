@@ -39,6 +39,7 @@ struct freq_int_t const freq_int[MAX_CHANNELS+1] PROGMEM={
 	{433500000, 433500000, 0},
 	{0, 0, 0}
 };
+uint16_t num_channels=2; // this is to kick the setup_channel() initially
 
 
 struct freq_hex_t {
@@ -48,7 +49,6 @@ struct freq_hex_t {
  
 struct freq_hex_t freq_hex;
 uint16_t channel=MAX_CHANNELS; // this is to kick the setup_channel() initially
-uint16_t num_channels=0; // this is to kick the setup_channel() initially
 
 
 uint16_t calc_N (uint32_t freq) {
@@ -98,9 +98,13 @@ void setup_channel(uint16_t c) {
 
 // here the pin change is calculated // 
 ISR(PCINT0_vect) {
-	uint8_t i=PINB&(0x07);
-	uint8_t ptt=(PINB&(0x08))>>3;
-	uint16_t ch=(PINB&(0xF0))>>4;
+	uint8_t i;
+	uint8_t ptt;
+	uint16_t ch;
+
+	i=PINB&(0x07);
+	ptt=(PINB&(0x08))>>3;
+	ch=(PINB&(0xF0))>>4;
 
 	setup_channel(ch); 
 	
@@ -122,29 +126,44 @@ int main (void) {
 	DDRC=0b11111111; // outbound 
 	DDRD=0b11111111; // PD0-3 are outbound 
 	//PORTA=0b11111111; // all pins pull up
-	PORTB=0b11111111; // all pins pull up
+	//PORTB=0b11111111; // all pins pull up
+	PORTB=0b00000000; // all pins ext pull down
 	//PORTD=0b11111111; // all pins pull up
 
 	// initialize num channels first... 
-	while (freq_int[num_channels].rx_freq != 0) { num_channels++; }
-	setup_channel(0);
+	//while (freq_int[num_channels].rx_freq > 0) { num_channels=num_channels+1; }
+/*	PORTD=0xFF; 
+	_delay_ms(1000);
+	PORTD=0x00; */
+	setup_channel(0); // anyway we start with channel code 0 to have 
+						// something valid 
 	
-	PCICR = 0x01;
-	PCMSK0 = 0x01;
-	sei();
+	//PCMSK0 = 0x01;
+	//PCICR = 0x01;
+	//sei();
 
    while(1) {                // (5)
-	/*	i=PINB&(0x07);
+		i=PINB&(0x07);
 		ptt=(PINB&(0x08))>>3;
 		ch=(PINB&(0xF0))>>4;
 	
 		setup_channel(ch); 
+		//setup_channel(0); 
+		
+	/*	PORTD=num_channels; 
+		_delay_ms(100);
+		PORTD=i|(ptt<<3); 
+		_delay_ms(2000);
+		PORTD=num_channels; 
+		_delay_ms(100);
+		PORTD=0x00; 
+	*/	
 	
 		if ( ptt != 0x01 ) {
 			PORTD=freq_hex.rx_freq[i];
 		} else {
 			PORTD=freq_hex.tx_freq[i];
-		}	*/
+		}	
 		//sleep_bod_disable();
 	//	sleep_enable();
 	//	sleep_cpu();
