@@ -5,8 +5,10 @@
 #include <avr/sleep.h>
 
 // just in case that we need a timer
-//#define F_CPU 16000000
-//#include <util/delay.h>
+#ifndef F_CPU
+#define F_CPU 16000000
+#endif
+#include <util/delay.h>
 
 #define fr 12500  // 12,5 kHz
 #define M 64      // 1:64 prescaler
@@ -17,9 +19,9 @@
 
 // defining the prescaler 0x03C to be copied to the PLL
 // depends on 750000/fr
-#define L5 0xC
-#define L6 0x3
-#define L7 0x0
+#define L5 0x0C
+#define L6 0x03
+#define L7 0x00
 
 
 // the following two structs are to construct the frequency 
@@ -39,8 +41,8 @@ struct freq_int_t freq_int[MAX_CHANNELS+1]={
 
 
 struct freq_hex_t {
-	unsigned char rx_freq[8];
-	unsigned char tx_freq[8]; 
+	uint8_t rx_freq[8];
+	uint8_t tx_freq[8]; 
 };
  
 struct freq_hex_t freq_hex[MAX_CHANNELS+1];
@@ -55,12 +57,12 @@ uint16_t calc_A (uint32_t freq, uint16_t N) {
 	return (freq/fr) - M * N;
 }
 
-unsigned char get_chr0 (uint16_t n) { return (unsigned char) (n & 0x000F); }
-unsigned char get_chr1 (uint16_t n) { return (unsigned char) ((n & 0x00F0)>>1); }
-unsigned char get_chr2 (uint16_t n) { return (unsigned char) ((n & 0x0F00)>>2); }
+uint8_t get_chr0 (uint16_t n) { return (uint8_t) (n & 0x000F); }
+uint8_t get_chr1 (uint16_t n) { return (uint8_t) ((n & 0x00F0)>>1); }
+uint8_t get_chr2 (uint16_t n) { return (uint8_t) ((n & 0x0F00)>>2); }
 
 void setup_channels() {
-	int i=0;
+	uint8_t i=0;
 	uint16_t N;  
 	uint16_t A;  
 	for (i=0; i<MAX_CHANNELS; i++) {
@@ -73,13 +75,35 @@ void setup_channels() {
 		N=calc_N(freq_int[i].rx_freq-ZF);
 		A=calc_A(freq_int[i].rx_freq-ZF, N);
 		freq_hex[i].rx_freq[0]=get_chr0(A);
+		//PORTD=freq_hex[i].rx_freq[0];
+		//_delay_ms(1000); 
 		freq_hex[i].rx_freq[1]=get_chr1(A);
+		//PORTD=freq_hex[i].rx_freq[1];
+		//_delay_ms(1000); 
 		freq_hex[i].rx_freq[2]=get_chr0(N); 
+		//PORTD=freq_hex[i].rx_freq[2];
+		//_delay_ms(1000); 
 		freq_hex[i].rx_freq[3]=get_chr1(N); 
+		//PORTD=freq_hex[i].rx_freq[3];
+		//_delay_ms(1000); 
 		freq_hex[i].rx_freq[4]=get_chr2(N);
+		//PORTD=freq_hex[i].rx_freq[4];
+		//_delay_ms(1000); 
 		freq_hex[i].rx_freq[5]=L5; 
+		//PORTD=freq_hex[i].rx_freq[5];
+		//_delay_ms(1000); 
 		freq_hex[i].rx_freq[6]=L6; 
+		//PORTD=freq_hex[i].rx_freq[6];
+		//_delay_ms(1000); 
 		freq_hex[i].rx_freq[7]=L7;
+		//PORTD=freq_hex[i].rx_freq[7];
+		//_delay_ms(1000); 
+		PORTD=0x0F;
+		_delay_ms(100); 
+		PORTD=0x00;
+		_delay_ms(100); 
+		PORTD=0x0F;
+		_delay_ms(100); 
 		
 		// tx freq
 		N=calc_N(freq_int[i].rx_freq);
@@ -97,9 +121,9 @@ void setup_channels() {
 
 // here the pin change is calculated // 
 ISR(PCINT0_vect) {
-	unsigned char i=PORTB&(0x07);
-	unsigned char ptt=(PORTB&(0x08))>>3;
-	uint16_t ch=(PORTB&(0xF0))>>4;
+	uint8_t i=PINB&(0x07);
+	uint8_t ptt=(PINB&(0x08))>>3;
+	uint16_t ch=(PINB&(0xF0))>>4;
 	
 	if ( ptt != 0x01 ) {
 		PORTD=freq_hex[ch].rx_freq[i];
@@ -109,22 +133,109 @@ ISR(PCINT0_vect) {
 }
 
 
-
 int main (void) {            
+	//unsigned char i=PORTB&(0x07);
+	//unsigned char ptt=(PORTB&(0x08))>>3;
+	//uint16_t ch=(PORTB&(0xF0))>>4;
+	uint8_t on=3; 
+	unsigned char foo; 
 
-	DDRD=0b00001111; // PD0-3 are outbound 
-	DDRB=0b00000000; // all pins inbound
+	//DDRA=0b00000000;
+	DDRB=0b00000000; // all pins inbound 5th bit is ptt. 
+	DDRC=0b11111111; // outbound 
+	DDRD=0b11111111; // PD0-3 are outbound 
+	//PORTA=0b11111111; // all pins pull up
+	PORTB=0b11111111; // all pins pull up
+	//PORTD=0b11111111; // all pins pull up
 
 	setup_channels();
-
-	PCMSK1 |= (1<<PCINT0);
-	sei(); 
-
-
 	
+	//PORTD=freq_hex[1].tx_freq[2];
+
+//	PCICR |= (1<<PCIE1);
+//	PCMSK1 |= (1<<PCINT0);
+//	sei(); 
 
    while(1) {                // (5)
-     /* "leere" Schleife*/   // (6)
+		//i=(unsigned char) PORTB&((1<<PB0)|(1<<PB1)|(1<<PB2));
+		//ptt=(unsigned char) (PORTB&(1<<PB3))>>3;
+		//ch=(uint16_t) (PORTB&((1<<PB4)|(1<<PB5)|(1<<PB6)|(1<<PB7)))>>4;
+		
+
+//			if ( on == 0 ) { PORTD=freq_hex[0].rx_freq[0]; }
+//			if ( on == 1 ) { PORTD=freq_hex[0].rx_freq[1]; }
+//			if ( on == 2 ) { PORTD=freq_hex[0].rx_freq[2]; }
+//			if ( on == 3 ) { PORTD=freq_hex[0].rx_freq[3]; }
+//			if ( on == 4 ) { PORTD=freq_hex[0].rx_freq[4]; }
+//			if ( on == 5 ) { PORTD=freq_hex[0].rx_freq[5]; }
+//			if ( on == 6 ) { PORTD=freq_hex[0].rx_freq[6]; }
+//			if ( on == 7 ) { PORTD=freq_hex[0].rx_freq[7]; }
+//			on=on+1; if ( on>=8 ) { on=0; }
+			 
+			PORTD=freq_hex[(uint8_t) 0].rx_freq[0]>>4; 
+			_delay_ms(1000);
+			PORTD=0xFF; 
+			_delay_ms(100);
+
+			PORTD=freq_hex[(uint8_t) 1].rx_freq[1]>>4; 
+			_delay_ms(1000);
+			PORTD=0xFF; 
+			_delay_ms(100);
+
+			PORTD=freq_hex[(uint8_t) 0].rx_freq[2]>>4; 
+			_delay_ms(1000);
+			PORTD=0xFF; 
+			_delay_ms(100);
+
+			PORTD=freq_hex[(uint8_t) 1].rx_freq[3]; 
+			_delay_ms(1000);
+			PORTD=0xFF; 
+			_delay_ms(100);
+
+			PORTD=freq_hex[(uint8_t) 0].rx_freq[4]; 
+			_delay_ms(1000);
+			PORTD=0xFF; 
+			_delay_ms(100);
+
+			PORTD=freq_hex[(uint8_t) 1].rx_freq[5]; 
+			_delay_ms(1000);
+			PORTD=0xFF; 
+			_delay_ms(100);
+
+			PORTD=freq_hex[(uint8_t) 0].rx_freq[6]; 
+			_delay_ms(1000);
+			PORTD=0xFF; 
+			_delay_ms(100);
+
+			PORTD=freq_hex[(uint8_t) 1].rx_freq[7]; 
+			_delay_ms(1000);
+			PORTD=0xFF; 
+			_delay_ms(100);
+
+
+			//PORTD=on; 
+
+
+//			if ( on == 0 ) {
+//				on=1; 
+//				PORTD=freq_hex[0].tx_freq[PINB&0x0F]; 
+//				DDRB=0b00000000; // all pins inbound
+//				PORTB=0b11111111; // all pins pull up
+//				//PORTD=(1<<PD0);
+//			} else {
+//				on=0; 
+//				PORTD=(0x00);
+//			}
+
+
+
+//	if ( ptt != 0x01 ) {
+//			PORTD=freq_hex[ch].rx_freq[i];
+	//		//PORTD=0x0f;
+//		} else {
+//			PORTD=freq_hex[ch].tx_freq[i];
+//		}
+//		sei(); 
    }     
  
    /* wird nie erreicht */
