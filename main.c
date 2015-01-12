@@ -66,7 +66,6 @@ uint8_t get_chr2 (uint16_t n) { return (uint8_t) ((n & 0x0F00)>>8); }
 void setup_channel(uint16_t c) {
 	uint16_t N;  
 	uint16_t A;  
-	if ( c == channel ) { return; } 
 	if ( c >= num_channels ) { return; } // do nothing if c is 
 								// higher than the last configured channel data
 	// rx freq
@@ -99,18 +98,18 @@ void setup_channel(uint16_t c) {
 // here the pin change is calculated // 
 ISR(PCINT0_vect) {
 	uint8_t i;
-	uint8_t ptt;
 	uint16_t ch;
 
-	i=PINB&(0x07);
-	ptt=(PINB&(0x08))>>3;
-	ch=(PINB&(0xF0))>>4;
+	ch=PINB // pinreading takes time i guess
+	i=ch&(0x07);
 
-	setup_channel(ch); 
-	
-	if ( ptt != 0x01 ) {
+	if ( ch&(0x08) == 0x08 ) { // ptt check 
+		ch=(ch&(0xF0))>>4;
+		if ( ch != channel ) { setup_channel(ch); } 
 		PORTD=freq_hex.rx_freq[i];
 	} else {
+		ch=(ch&(0xF0))>>4;
+		if ( ch != channel ) { setup_channel(ch); } 
 		PORTD=freq_hex.tx_freq[i];
 	}
 }
@@ -118,7 +117,6 @@ ISR(PCINT0_vect) {
 
 int main (void) {            
 	uint8_t i;
-	uint8_t ptt;
 	uint16_t ch;
 
 	//DDRA=0b00000000;
@@ -143,31 +141,23 @@ int main (void) {
 	//sei();
 
    while(1) {                // (5)
-		i=PINB&(0x07);
-		ptt=(PINB&(0x08))>>3;
-		ch=(PINB&(0xF0))>>4;
-	
-		setup_channel(ch); 
-		//setup_channel(0); 
-		
-	/*	PORTD=num_channels; 
-		_delay_ms(100);
-		PORTD=i|(ptt<<3); 
-		_delay_ms(2000);
-		PORTD=num_channels; 
-		_delay_ms(100);
-		PORTD=0x00; 
-	*/	
-	
-		if ( ptt != 0x01 ) {
+		ch=PINB // pinreading takes time i guess
+		i=ch&(0x07);
+
+		if ( ch&(0x08) == 0x08 ) { // ptt check 
+			ch=(ch&(0xF0))>>4;
+			if ( ch != channel ) { setup_channel(ch); } 
 			PORTD=freq_hex.rx_freq[i];
 		} else {
+			ch=(ch&(0xF0))>>4;
+			if ( ch != channel ) { setup_channel(ch); } 
 			PORTD=freq_hex.tx_freq[i];
-		}	
+		}
+
 		//sleep_bod_disable();
-	//	sleep_enable();
-	//	sleep_cpu();
-//		sleep_disable();
+		//sleep_enable();
+		//sleep_cpu();
+		//sleep_disable();
    }     
  
    /* wird nie erreicht */
