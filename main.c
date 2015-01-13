@@ -5,7 +5,7 @@
 #include <avr/sleep.h>
 #include <avr/pgmspace.h>
 
-#define DEBUG 1
+//#define DEBUG 1
 
 // just in case that we need a timer
 #ifndef F_CPU
@@ -139,22 +139,22 @@ ISR(PCINT0_vect) {
 	ch=PINB; // pinreading takes time i guess
 	i=ch&(0x07);
 
-	if ( ch&(0x08) == 0x08 ) { // ptt check 
-		ch=(ch&(0xF0))>>4;
-		if ( ch != channel ) { setup_channel(ch); } 
-		PORTD=freq_hex.rx_freq[i];
-	} else {
+	if ( (ch&(0x08)) == 0x08 ) { // ptt check 
 		ch=(ch&(0xF0))>>4;
 		if ( ch != channel ) { setup_channel(ch); } 
 		PORTD=freq_hex.tx_freq[i];
+	} else {
+		ch=(ch&(0xF0))>>4;
+		if ( ch != channel ) { setup_channel(ch); } 
+		PORTD=freq_hex.rx_freq[i];
 	}
 	return; 
 }
 
-ISR(__vector_default) {
-		PORTD=0xFF;
-		return;  
-}
+//ISR(__vector_default) {
+//		PORTD=0xFF;
+//		return;  
+//}
 
 
 int main (void) {            
