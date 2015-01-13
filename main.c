@@ -5,6 +5,8 @@
 #include <avr/sleep.h>
 #include <avr/pgmspace.h>
 
+#define DEBUG 1
+
 // just in case that we need a timer
 #ifndef F_CPU
 #define F_CPU 16000000
@@ -67,6 +69,35 @@ uint8_t get_chr0 (uint16_t n) { return (uint8_t) (n & 0x000F); }
 uint8_t get_chr1 (uint16_t n) { return (uint8_t) ((n & 0x00F0)>>4); }
 uint8_t get_chr2 (uint16_t n) { return (uint8_t) ((n & 0x0F00)>>8); }
 
+#ifdef DEBUG
+void setup_channel(uint16_t c) {
+	uint16_t N;  
+	uint16_t A;  
+	if ( c >= num_channels ) { return; } // do nothing if c is 
+								// higher than the last configured channel data
+	// rx freq
+	freq_hex.rx_freq[0]=0x00;
+	freq_hex.rx_freq[1]=0x01;
+	freq_hex.rx_freq[2]=0x02; 
+	freq_hex.rx_freq[3]=0x03; 
+	freq_hex.rx_freq[4]=0x04;
+	freq_hex.rx_freq[5]=0x05; 
+	freq_hex.rx_freq[6]=0x06; 
+	freq_hex.rx_freq[7]=0x07;
+	
+	// tx freq
+	freq_hex.tx_freq[0]=0x08;
+	freq_hex.tx_freq[1]=0x09;
+	freq_hex.tx_freq[2]=0x0A; 
+	freq_hex.tx_freq[3]=0x0B; 
+	freq_hex.tx_freq[4]=0x0C;
+	freq_hex.tx_freq[5]=0x0D; 
+	freq_hex.tx_freq[6]=0x0E; 
+	freq_hex.tx_freq[7]=0x0F; 
+	
+	channel=c; 
+}
+#else
 void setup_channel(uint16_t c) {
 	uint16_t N;  
 	uint16_t A;  
@@ -98,6 +129,7 @@ void setup_channel(uint16_t c) {
 	
 	channel=c; 
 }
+#endif
 
 // here the pin change is calculated // 
 ISR(PCINT0_vect) {
@@ -145,6 +177,7 @@ int main (void) {
 	PORTD=0x00; */
 	setup_channel(0); // anyway we start with channel code 0 to have 
 						// something valid 
+	//printf("hello world\n"); 
 	
 	PCMSK0 = 0x01;
 	PCICR = 0x01;
@@ -165,6 +198,7 @@ int main (void) {
 	//	}
 
 		//sleep_bod_disable();
+		//set_sleep_mode(SLEEP_MODE_STANDBY, SLEEP_MODE_EXT_STANDBY); 
 		sleep_enable();
 		sei(); 
 		sleep_cpu();
