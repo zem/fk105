@@ -36,10 +36,14 @@ struct freq_int_t {
 
 struct freq_int_t const freq_int[MAX_CHANNELS+1] PROGMEM={
 	{438950000, 431350000, 1622},
+	{438675000, 431075000, 0},
+	{438750000, 431150000, 0},
+	{438725000, 430950000, 0},
+	{438800000, 431200000, 0},
 	{433500000, 433500000, 0},
 	{0, 0, 0}
 };
-uint16_t num_channels=2; // this is to kick the setup_channel() initially
+uint16_t num_channels=6; // this is to kick the setup_channel() initially
 
 
 struct freq_hex_t {
@@ -100,7 +104,7 @@ ISR(PCINT0_vect) {
 	uint8_t i;
 	uint16_t ch;
 
-	ch=PINB // pinreading takes time i guess
+	ch=PINB; // pinreading takes time i guess
 	i=ch&(0x07);
 
 	if ( ch&(0x08) == 0x08 ) { // ptt check 
@@ -112,6 +116,12 @@ ISR(PCINT0_vect) {
 		if ( ch != channel ) { setup_channel(ch); } 
 		PORTD=freq_hex.tx_freq[i];
 	}
+	return; 
+}
+
+ISR(__vector_default) {
+		PORTD=0xFF;
+		return;  
 }
 
 
@@ -136,28 +146,29 @@ int main (void) {
 	setup_channel(0); // anyway we start with channel code 0 to have 
 						// something valid 
 	
-	//PCMSK0 = 0x01;
-	//PCICR = 0x01;
-	//sei();
+	PCMSK0 = 0x01;
+	PCICR = 0x01;
+	sei();
 
    while(1) {                // (5)
-		ch=PINB // pinreading takes time i guess
-		i=ch&(0x07);
-
-		if ( ch&(0x08) == 0x08 ) { // ptt check 
-			ch=(ch&(0xF0))>>4;
-			if ( ch != channel ) { setup_channel(ch); } 
-			PORTD=freq_hex.rx_freq[i];
-		} else {
-			ch=(ch&(0xF0))>>4;
-			if ( ch != channel ) { setup_channel(ch); } 
-			PORTD=freq_hex.tx_freq[i];
-		}
+	//	ch=PINB; // pinreading takes time i guess
+	//	i=ch&(0x07);
+//
+	//	if ( ch&(0x08) == 0x08 ) { // ptt check 
+	//		ch=(ch&(0xF0))>>4;
+	//		if ( ch != channel ) { setup_channel(ch); } 
+	//		PORTD=freq_hex.rx_freq[i];
+	//	} else {
+	//		ch=(ch&(0xF0))>>4;
+	//		if ( ch != channel ) { setup_channel(ch); } 
+	//		PORTD=freq_hex.tx_freq[i];
+	//	}
 
 		//sleep_bod_disable();
-		//sleep_enable();
-		//sleep_cpu();
-		//sleep_disable();
+		sleep_enable();
+		sei(); 
+		sleep_cpu();
+		sleep_disable();
    }     
  
    /* wird nie erreicht */
