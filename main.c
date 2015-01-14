@@ -136,7 +136,7 @@ ISR(PCINT0_vect) {
 	uint8_t i;
 	uint16_t ch;
 
-	ch=PINB; // pinreading takes time i guess
+	ch=(PINB>>1); // pinreading takes time i guess
 	i=ch&(0x07);
 
 	if ( (ch&(0x08)) == 0x08 ) { // ptt check 
@@ -179,7 +179,7 @@ int main (void) {
 						// something valid 
 	//printf("hello world\n"); 
 	
-	PCMSK0 = 0x01;
+	PCMSK0 = 0x02;
 	PCICR = 0x01;
 	sei();
 
