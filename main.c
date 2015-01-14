@@ -48,12 +48,8 @@ struct freq_int_t const freq_int[MAX_CHANNELS+1] PROGMEM={
 uint16_t num_channels=6; // this is to kick the setup_channel() initially
 
 
-struct freq_hex_t {
-	uint8_t rx_freq[8];
-	uint8_t tx_freq[8]; 
-};
- 
-struct freq_hex_t freq_hex;
+uint8_t freq [16];  // the current frequency is stored in those 16 Bytes
+
 uint16_t channel=MAX_CHANNELS; // this is to kick the setup_channel() initially
 
 
@@ -76,24 +72,24 @@ void setup_channel(uint16_t c) {
 	if ( c >= num_channels ) { return; } // do nothing if c is 
 								// higher than the last configured channel data
 	// rx freq
-	freq_hex.rx_freq[0]=0x00;
-	freq_hex.rx_freq[1]=0x01;
-	freq_hex.rx_freq[2]=0x02; 
-	freq_hex.rx_freq[3]=0x03; 
-	freq_hex.rx_freq[4]=0x04;
-	freq_hex.rx_freq[5]=0x05; 
-	freq_hex.rx_freq[6]=0x06; 
-	freq_hex.rx_freq[7]=0x07;
+	freq[0]=0x00;
+	freq[1]=0x01;
+	freq[2]=0x02; 
+	freq[3]=0x03; 
+	freq[4]=0x04;
+	freq[5]=0x05; 
+	freq[6]=0x06; 
+	freq[7]=0x07;
 	
 	// tx freq
-	freq_hex.tx_freq[0]=0x08;
-	freq_hex.tx_freq[1]=0x09;
-	freq_hex.tx_freq[2]=0x0A; 
-	freq_hex.tx_freq[3]=0x0B; 
-	freq_hex.tx_freq[4]=0x0C;
-	freq_hex.tx_freq[5]=0x0D; 
-	freq_hex.tx_freq[6]=0x0E; 
-	freq_hex.tx_freq[7]=0x0F; 
+	freq[8]=0x08;
+	freq[9]=0x09;
+	freq[10]=0x0A; 
+	freq[11]=0x0B; 
+	freq[12]=0x0C;
+	freq[13]=0x0D; 
+	freq[14]=0x0E; 
+	freq[15]=0x0F; 
 	
 	channel=c; 
 }
@@ -106,55 +102,36 @@ void setup_channel(uint16_t c) {
 	// rx freq
 	N=calc_N(freq_int[c].rx_freq-ZF);
 	A=calc_A(freq_int[c].rx_freq-ZF, N);
-	freq_hex.rx_freq[0]=get_chr0(A);
-	freq_hex.rx_freq[1]=get_chr1(A);
-	freq_hex.rx_freq[2]=get_chr0(N); 
-	freq_hex.rx_freq[3]=get_chr1(N); 
-	freq_hex.rx_freq[4]=get_chr2(N);
-	freq_hex.rx_freq[5]=L5; 
-	freq_hex.rx_freq[6]=L6; 
-	freq_hex.rx_freq[7]=L7;
+	freq[0]=get_chr0(A);
+	freq[1]=get_chr1(A);
+	freq[2]=get_chr0(N); 
+	freq[3]=get_chr1(N); 
+	freq[4]=get_chr2(N);
+	freq[5]=L5; 
+	freq[6]=L6; 
+	freq[7]=L7;
 	
 	// tx freq
 	N=calc_N(freq_int[c].rx_freq);
 	A=calc_A(freq_int[c].rx_freq, N);
-	freq_hex.tx_freq[0]=get_chr0(A);
-	freq_hex.tx_freq[1]=get_chr1(A);
-	freq_hex.tx_freq[2]=get_chr0(N); 
-	freq_hex.tx_freq[3]=get_chr1(N); 
-	freq_hex.tx_freq[4]=get_chr2(N);
-	freq_hex.tx_freq[5]=L5; 
-	freq_hex.tx_freq[6]=L6; 
-	freq_hex.tx_freq[7]=L7; 
+	freq[8]=get_chr0(A);
+	freq[9]=get_chr1(A);
+	freq[10]=get_chr0(N); 
+	freq[11]=get_chr1(N); 
+	freq[12]=get_chr2(N);
+	freq[13]=L5; 
+	freq[14]=L6; 
+	freq[15]=L7; 
 	
 	channel=c; 
 }
 #endif
 
 // here the pin change is calculated // 
-ISR(PCINT0_vect) {
-	uint8_t i;
-	uint16_t ch;
-
-	ch=(PINB>>1); // pinreading takes time i guess
-	i=ch&(0x07);
-
-	if ( (ch&(0x08)) == 0x08 ) { // ptt check 
-		ch=(ch&(0xF0))>>4;
-		if ( ch != channel ) { setup_channel(ch); } 
-		PORTD=freq_hex.tx_freq[i];
-	} else {
-		ch=(ch&(0xF0))>>4;
-		if ( ch != channel ) { setup_channel(ch); } 
-		PORTD=freq_hex.rx_freq[i];
-	}
-	return; 
+ISR(PCINT0_vect,ISR_NAKED) {
+	PORTD=freq[(PINB>>1)];
+	reti(); 
 }
-
-//ISR(__vector_default) {
-//		PORTD=0xFF;
-//		return;  
-//}
 
 
 int main (void) {            
@@ -162,7 +139,7 @@ int main (void) {
 	uint16_t ch;
 
 	//DDRA=0b00000000;
-	DDRB=0b00000000; // all pins inbound 5th bit is ptt. 
+	DDRB=0b00000000; // all pins inbound 4th bit is ptt. 
 	DDRC=0b11111111; // outbound 
 	DDRD=0b11111111; // PD0-3 are outbound 
 	//PORTA=0b11111111; // all pins pull up
@@ -186,7 +163,7 @@ int main (void) {
    while(1) {                // (5)
 	//	ch=PINB; // pinreading takes time i guess
 	//	i=ch&(0x07);
-//
+	//
 	//	if ( ch&(0x08) == 0x08 ) { // ptt check 
 	//		ch=(ch&(0xF0))>>4;
 	//		if ( ch != channel ) { setup_channel(ch); } 
@@ -199,10 +176,6 @@ int main (void) {
 
 		//sleep_bod_disable();
 		//set_sleep_mode(SLEEP_MODE_STANDBY, SLEEP_MODE_EXT_STANDBY); 
-		sleep_enable();
-		sei(); 
-		sleep_cpu();
-		sleep_disable();
    }     
  
    /* wird nie erreicht */
