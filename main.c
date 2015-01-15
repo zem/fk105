@@ -5,7 +5,7 @@
 #include <avr/sleep.h>
 #include <avr/pgmspace.h>
 
-//#define DEBUG 1
+#define DEBUG 1
 
 // just in case that we need a timer
 #ifndef F_CPU
@@ -71,6 +71,7 @@ void setup_channel(uint16_t c) {
 	uint16_t A;  
 	if ( c >= num_channels ) { return; } // do nothing if c is 
 								// higher than the last configured channel data
+	if ( c == channel ) { return; } // test if the channel has changed 
 	// rx freq
 	freq[0]=0x00;
 	freq[1]=0x01;
@@ -99,6 +100,7 @@ void setup_channel(uint16_t c) {
 	uint16_t A;  
 	if ( c >= num_channels ) { return; } // do nothing if c is 
 								// higher than the last configured channel data
+	if ( c == channel ) { return; } // test if the channel has changed 
 	// rx freq
 	N=calc_N(freq_int[c].rx_freq-ZF);
 	A=calc_A(freq_int[c].rx_freq-ZF, N);
@@ -135,49 +137,31 @@ ISR(PCINT0_vect,ISR_NAKED) {
 
 
 int main (void) {            
-	uint8_t i;
 	uint16_t ch;
 
-	//DDRA=0b00000000;
-	DDRB=0b00000000; // all pins inbound 4th bit is ptt. 
-	DDRC=0b11111111; // outbound 
-	DDRD=0b11111111; // PD0-3 are outbound 
-	//PORTA=0b11111111; // all pins pull up
-	//PORTB=0b11111111; // all pins pull up
-	PORTB=0b00000000; // all pins ext pull down
-	//PORTD=0b11111111; // all pins pull up
+	DDRB=0b11100000; // all lower pins inbound 4th bit is ptt. 
+	DDRC=0b11111111; // outbound all generally outbound pc6 is updating address
+	DDRD=0b11011111;
+	DDRE=0b11111111; 
+	DDRF=0b00001111; // on PF4-7 the channel encoding is made
+	PORTB=0b11100000; // PB1-PB4 ist Address while PB0 is RX Led 
+	PORTC=0b11111111; // all pins pull up
+	PORTD=0b11011111; // all pins pull up this is the utgoing port PD5 is TX led 
+	PORTE=0b11111111; 
+	PORTF=0b00001111; // address input
 
-	// initialize num channels first... 
-	//while (freq_int[num_channels].rx_freq > 0) { num_channels=num_channels+1; }
-/*	PORTD=0xFF; 
-	_delay_ms(1000);
-	PORTD=0x00; */
-	setup_channel(0); // anyway we start with channel code 0 to have 
+	setup_channel(0); 
+
+						// anyway we start with channel code 0 to have 
 						// something valid 
-	//printf("hello world\n"); 
-	
+
 	PCMSK0 = 0x02;
 	PCICR = 0x01;
 	sei();
 
-   while(1) {                // (5)
-	//	ch=PINB; // pinreading takes time i guess
-	//	i=ch&(0x07);
-	//
-	//	if ( ch&(0x08) == 0x08 ) { // ptt check 
-	//		ch=(ch&(0xF0))>>4;
-	//		if ( ch != channel ) { setup_channel(ch); } 
-	//		PORTD=freq_hex.rx_freq[i];
-	//	} else {
-	//		ch=(ch&(0xF0))>>4;
-	//		if ( ch != channel ) { setup_channel(ch); } 
-	//		PORTD=freq_hex.tx_freq[i];
-	//	}
-
-		//sleep_bod_disable();
-		//set_sleep_mode(SLEEP_MODE_STANDBY, SLEEP_MODE_EXT_STANDBY); 
+   while(1) { 
+		setup_channel((PORTF|0xF0)>>4);
    }     
  
-   /* wird nie erreicht */
-   return 0;                 // (6)
+   return 0;                 
 }
